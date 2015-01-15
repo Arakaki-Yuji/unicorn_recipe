@@ -1,0 +1,90 @@
+#!/bin/sh
+
+#chkconfig:2345 99 1
+#description:unicorn shell
+
+NAME="Unicorn"
+ENV=<%= node['unicorn']['env'] %>
+
+ROOT_DIR="<%= node['unicorn']['root_dir'] %>"
+
+PID="${ROOT_DIR}/log/unicorn.pid"
+CONF="${ROOT_DIR}/config/unicorn.rb"
+OPTIONS=""
+
+PS=`ps -ef | grep unicorn_rails | grep -v grep | grep -v service | grep -v init.d | wc -l`
+
+status()
+{
+  if [ $PS = 0 ]; then
+     echo "$NAME is not running"
+     exit 1
+  fi
+
+  PID_NUM=`cat $PID`
+  echo "$NAME (pid $PID_NUM) is running..."
+  exit 0
+}
+
+start()
+{
+  if [ ! $PS = 0 ]; then
+    echo "$NAME already started"
+    exit 1
+  fi
+  echo "start $NAME"
+  cd $ROOT_DIR
+  su - <%= node['unicorn']['user'] %> -c "cd ${ROOT_DIR} && bundle exec unicorn_rails -c ${CONF} -E ${ENV} -D"
+}
+
+stop()
+{
+  if [ ! -e $PID ]; then
+    echo "$NAME not started"
+    exit 1
+  fi
+  echo "stop $NAME"
+  kill -QUIT `cat ${PID}`
+}
+
+force_stop()
+{
+  if [ ! -e $PID ]; then
+    echo "$NAME not started"
+    exit 1
+  fi
+  echo "stop $NAME"
+  kill -INT `cat ${PID}`
+}
+
+restart()
+{
+  if [ ! -e $PID ]; then
+    echo "$NAME not started"
+    start
+    exit 0
+  fi
+  echo "restart $NAME"
+  kill -HUP `cat ${PID}`
+}
+
+case "$1" in
+  status)
+    status
+    ;;
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  force-stop)
+    force_stop
+    ;;
+  restart)
+    restart
+    ;;
+  *)
+    echo "Syntax Error: release [start|stop|force-stop|restart|status]"
+    ;;
+esac
